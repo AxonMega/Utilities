@@ -105,11 +105,10 @@ function methods:clearVars()
 end
 
 function methods:getPing()
-	local now = elapsedTime()
 	if self.mode == "client" then
-		return self.intFunc:InvokeServer() - now
+		return elapsedTime() - self.intFunc:InvokeServer()
 	elseif self.mode == "server" then
-		return self.intFunc:InvokeClient(self.client) - now
+		return elapsedTime() - self.intFunc:InvokeClient(self.client)
 	end
 end
 
