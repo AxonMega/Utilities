@@ -4,24 +4,8 @@ local methods = {}
 local reservedNames = {
 	connection = true, comFunc = true, comEvent = true, intEvent = true, intFunc = true, mode = true, client = true,
 	myScript = true, otherScript = true, send = true, sendWR = true, getVars = true, setVars = true, clearVars = true,
-	getPing = true
+	addReceive = true, setReceiveWR = true, getPing = true
 } 
-
-local function err(bamboozlement)
-	error("A bamboozlement has occured with the communication module: " .. bamboozlement)
-end
-
-local function isScript(thing, argNum)
-	if typeof(thing) ~= "Instance" or not thing:IsA("Script") then
-		err("you were supposed to input a script or a local script for the " .. argNum .. " argument!")
-	end
-end
-
-local function isFunc(thing, field)
-	if type(thing) ~= "function" then
-		err("the field '" .. field .. "' was supposed to be a function or empty!")
-	end
-end
 
 local function getData(com)
 	return getmetatable(com).__index
@@ -79,9 +63,7 @@ function methods:getVars()
 end
 
 function methods:setVars(vars)
-	if type(vars) ~= "table" then
-		err("you were supposed to input a table!")
-	end
+	assert(type(vars) == "table", "you were supposed to input a table!")
 	for name in pairs(vars) do
 		if reservedNames[name] or type(name) ~= "string" then
 			vars[name] = nil
@@ -104,6 +86,30 @@ function methods:clearVars()
 	end
 end
 
+function methods:addReceive(func)
+	assert(type(func) == "function", "you were supposed to input a function!")
+	if self.mode == "client" then
+		self.comEvent.OnClientEvent:Connect(func)
+	elseif self.mode == "server" then
+		local function onEvent(_, ...)
+			func(...)
+		end
+		self.comEvent.OnServerEvent:Connect(onEvent)
+	end
+end
+
+function methods:setReceiveWR(func)
+	assert(type(func) == "function", "you were supposed to input a function!")
+	if self.mode == "client" then
+		self.comFunc.OnClientInvoke = func
+	elseif self.mode == "server" then
+		local function onInvoke(_, ...)
+			func(...)
+		end
+		self.comFunc.OnServerInvoke = onInvoke
+	end
+end
+
 function methods:getPing()
 	if self.mode == "client" then
 		return elapsedTime() - self.intFunc:InvokeServer()
@@ -113,12 +119,8 @@ function methods:getPing()
 end
 
 function methods:__newindex(name, value)
-	if type(name) ~= "string" then
-		err("all fields must be strings!")
-	end
-	if reservedNames[name] then
-		err("the field '" .. name .. "' cannot be overwritten!")
-	end
+	assert(type(name) == "string", "all field names must be strings!")
+	assert(not reservedNames[name], "the field '" .. name .."' cannot be overwritten!")
 	getData(self)[name] = value
 	if self.mode == "client" then
 		self.intEvent:FireServer("set", name, value)
@@ -128,19 +130,19 @@ function methods:__newindex(name, value)
 end
 
 local function createCom(myScript, otherScript, funcs)
-	isScript(myScript, "first")
-	isScript(otherScript, "second")
-	if myScript.ClassName == otherScript.ClassName then
-		err("you were supposed to input one script and one local script!")
-	end
-	if funcs and type(funcs) ~= "table" then
-		err("you were supposed to input a table or nothing for the third argument!")
-	end
+	assert(typeof(myScript) == "Instance" and myScript:IsA("Script"), 
+		"you were supposed to input a script for the first argument!")
+	assert(typeof(myScript) == "Instance" and myScript:IsA("Script"), 
+		"you were supposed to input a script for the second argument!")
+	assert(myScript.ClassName ~= otherScript.ClassName, "You were supposed to input one script and one local script!")
+	assert(not funcs or type(funcs) == "table", "you were supposed to input a table or nothing for the third argument!")
 	local com = {}
-	local data = {
-		myScript = myScript, otherScript = otherScript, send = methods.send, sendWR = methods.sendWR,
-		getVars = methods.getVars, setVars = methods.setVars, clearVars = methods.clearVars, getPing = methods.getPing
-	}
+	local data = {myScript = myScript, otherScript = otherScript}
+	for name, method in pairs(methods) do
+		if name ~= "__newindex" then
+			data[name] = method
+		end
+	end
 	if myScript:IsA("LocalScript") then
 		data.mode = "client"
 		data.client = game.Players.LocalPlayer
@@ -153,12 +155,12 @@ local function createCom(myScript, otherScript, funcs)
 		if funcs then
 			local receive = funcs.receive
 			if receive then
-				isFunc(receive, "receive")
+				assert(type(receive) == "function", "the field 'receive' was supposed to be a function or empty!")
 				data.comEvent.OnClientEvent:Connect(receive)
 			end
 			local receiveWR = funcs.receiveWR
 			if receiveWR then
-				isFunc(receiveWR, "receiveWR")
+				assert(type(receiveWR) == "function", "the field 'receiveWR' was supposed to be a function or empty!")
 				data.comFunc.OnClientInvoke = receiveWR
 			end
 		end
@@ -193,7 +195,7 @@ local function createCom(myScript, otherScript, funcs)
 		if funcs then
 			local receive = funcs.receive
 			if receive then
-				isFunc(receive, "receive")
+				assert(type(receive) == "function", "the field 'receive' was supposed to be a function or empty!")
 				local function onEvent(_, ...)
 					receive(...)
 				end
@@ -201,7 +203,7 @@ local function createCom(myScript, otherScript, funcs)
 			end
 			local receiveWR = funcs.receiveWR
 			if receiveWR then
-				isFunc(receiveWR, "receiveWR")
+				assert(type(receiveWR) == "function", "the field 'receiveWR' was supposed to be a function or empty!")
 				local function onInvoke(_, ...)
 					return receiveWR(...)
 				end
