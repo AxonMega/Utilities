@@ -4,7 +4,7 @@ local methods = {}
 local reservedNames = {
 	connection = true, comFunc = true, comEvent = true, intEvent = true, intFunc = true, mode = true, client = true,
 	myScript = true, otherScript = true, send = true, sendWR = true, getVars = true, setVars = true, clearVars = true,
-	addReceive = true, setReceiveWR = true, getPing = true
+	setReceive = true, setReceiveWR = true, setOnVarChanged = true, getPing = true, receiveCon = true, onVarChanged = true
 } 
 
 local function getData(com)
@@ -12,15 +12,23 @@ local function getData(com)
 end
 
 local function intSetVars(data, vars)
+	local onVarChanged = data.onVarChanged
 	for name, value in pairs(vars) do
 		data[name] = value
+		if onVarChanged then
+			onVarChanged(name)
+		end
 	end
 end
 
 local function intClearVars(data)
+	local onVarChanged = data.onVarChanged
 	for name in pairs(data) do
 		if not reservedNames[name] then
 			data[name] = nil
+			if onVarChanged then
+				onVarChanged(name)
+			end
 		end
 	end
 end
@@ -29,6 +37,9 @@ local function onIntEventMain(data, task, ...)
 	if task == "set" then
 		local name, value = ...
 		data[name] = value
+		if data.onVarChanged then
+			data.onVarChanged(name, value)
+		end
 	elseif task == "setM" then
 		intSetVars(data, ...)
 	elseif task == "clear" then
@@ -86,15 +97,19 @@ function methods:clearVars()
 	end
 end
 
-function methods:addReceive(func)
+function methods:setReceive(func)
 	assert(type(func) == "function", "you were supposed to input a function!")
+	local data = getData(self)
+	if data.receiveCon then
+		data.receiveCon:Disconnect()
+	end
 	if self.mode == "client" then
-		self.comEvent.OnClientEvent:Connect(func)
+		data.receiveCon = self.comEvent.OnClientEvent:Connect(func)
 	elseif self.mode == "server" then
 		local function onEvent(_, ...)
 			func(...)
 		end
-		self.comEvent.OnServerEvent:Connect(onEvent)
+		data.receiveCon = self.comEvent.OnServerEvent:Connect(onEvent)
 	end
 end
 
@@ -108,6 +123,11 @@ function methods:setReceiveWR(func)
 		end
 		self.comFunc.OnServerInvoke = onInvoke
 	end
+end
+
+function methods:setOnVarChanged(func)
+	assert(type(func) == "function", "you were supposed to input a function!")
+	getData(self).onVarChanged = func
 end
 
 function methods:getPing()
@@ -156,12 +176,17 @@ local function createCom(myScript, otherScript, funcs)
 			local receive = funcs.receive
 			if receive then
 				assert(type(receive) == "function", "the field 'receive' was supposed to be a function or empty!")
-				data.comEvent.OnClientEvent:Connect(receive)
+				data.receiveCon = data.comEvent.OnClientEvent:Connect(receive)
 			end
 			local receiveWR = funcs.receiveWR
 			if receiveWR then
 				assert(type(receiveWR) == "function", "the field 'receiveWR' was supposed to be a function or empty!")
 				data.comFunc.OnClientInvoke = receiveWR
+			end
+			local onVarChanged = funcs.onVarChanged
+			if onVarChanged then
+				assert(type(onVarChanged) == "function", "the field 'receive' was supposed to be a function or empty!")
+				 data.onVarChanged = onVarChanged
 			end
 		end
 		local function onIntEvent(task, ...)
@@ -199,7 +224,7 @@ local function createCom(myScript, otherScript, funcs)
 				local function onEvent(_, ...)
 					receive(...)
 				end
-				comEvent.OnServerEvent:Connect(onEvent)
+				data.receiveCon = comEvent.OnServerEvent:Connect(onEvent)
 			end
 			local receiveWR = funcs.receiveWR
 			if receiveWR then
@@ -208,6 +233,11 @@ local function createCom(myScript, otherScript, funcs)
 					return receiveWR(...)
 				end
 				comFunc.OnServerInvoke = onInvoke
+			end
+			local onVarChanged = funcs.onVarChanged
+			if onVarChanged then
+				assert(type(onVarChanged) == "function", "the field 'receive' was supposed to be a function or empty!")
+				data.onVarChanged = onVarChanged
 			end
 		end
 		local function onIntEvent(player, task, ...)
