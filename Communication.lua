@@ -119,7 +119,7 @@ function methods:setReceiveWR(func)
 		self.comFunc.OnClientInvoke = func
 	elseif self.mode == "server" then
 		local function onInvoke(_, ...)
-			func(...)
+			return func(...)
 		end
 		self.comFunc.OnServerInvoke = onInvoke
 	end
