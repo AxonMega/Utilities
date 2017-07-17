@@ -152,7 +152,7 @@ end
 local function createCom(myScript, otherScript, funcs)
 	assert(typeof(myScript) == "Instance" and myScript:IsA("Script"), 
 		"you were supposed to input a script for the first argument!")
-	assert(typeof(myScript) == "Instance" and myScript:IsA("Script"), 
+	assert(typeof(otherScript) == "Instance" and otherScript:IsA("Script"), 
 		"you were supposed to input a script for the second argument!")
 	assert(myScript.ClassName ~= otherScript.ClassName, "You were supposed to input one script and one local script!")
 	assert(not funcs or type(funcs) == "table", "you were supposed to input a table or nothing for the third argument!")
