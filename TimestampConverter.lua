@@ -94,7 +94,7 @@ function Converter.date(timestamp, isdst)
 	local totalDays = math.ceil(timestamp/86400)
 	local day = totalDays
 	local month = 0	
-    while day >= daysThisYear(year) do
+    	while day >= daysThisYear(year) do
 		day = day - daysThisYear(year)
 		year = year + 1
 	end
@@ -114,7 +114,7 @@ function Converter.date(timestamp, isdst)
 		month = 12
 	end
 	local date = tostring(month) .. "/" .. tostring(day) .. "/" .. tostring(year):sub(3)
-	local dotw= (totalDays + 3)%7 + 1
+	local dotw = (totalDays + 3)%7 + 1
 	local time = Converter.time(timestamp%86400)
 	return combine({date = date, month = month, day = day, year = year, dotw = dotw, isdst = isdst}, time)
 end
