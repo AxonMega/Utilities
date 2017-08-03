@@ -101,7 +101,7 @@ function Converter.date(timestamp, isdst)
 		year = year + 1
 	end
 	for i, daysThisMonth in ipairs(daysPerMonth) do
-			if i == 2 and daysThisYear(year) == 366 then
+		if i == 2 and daysThisYear(year) == 366 then
 			daysThisMonth = 29
 		end
 		if day - daysThisMonth <= 0 then
